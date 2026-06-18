@@ -1,6 +1,6 @@
 # BigQuery Release Notes Explorer
 
-A modern, high-performance web dashboard built to browse, search, filter, and share Google Cloud BigQuery release notes. The application connects directly to the official Google Cloud Platform Atom feed, segments grouped updates on a day-level basis, and provides interactive tools for copying contents or posting directly on X (Twitter).
+A modern, high-performance web dashboard built to browse, search, filter, and share Google Cloud BigQuery release notes. The application connects directly to the official Google Cloud Platform Atom feed, segments grouped updates on a day-level basis, and provides interactive tools for copying contents, exporting CSV files, or posting directly on X (Twitter).
 
 ```
 bq_release_viewer/
@@ -21,12 +21,16 @@ bq_release_viewer/
 
 ## ⚡ Core Features
 
-*   **Granular Item Splitting**: Google's Atom feed packs all release items on a single day into a single feed item. The server segments these entries by `<h3>` tags, exposing every feature, announcement, or bug fix as a standalone card.
-*   **Search & Multi-Filters**: Instant client-side text query search across dates, categories, and descriptions. Filter updates instantly by categories (*Features*, *Announcements*, *Issues*, *Breaking*, *Changes*, *Deprecations*).
-*   **Tweet Composer Drawer**: Select a card to draft a custom tweet with active hashtag toggle chips. The counter calculates X's 280-character limit dynamically by wrapping URLs to their standard 23-character `t.co` limit.
-*   **Copy to Clipboard (Secure Fallback)**: Copies formatted card contents (Category, Date, Text, and Reference URL) to the clipboard. Includes fallback checks for non-secure contexts (`http` IP endpoints) running synchronously to prevent browser user-gesture blocks.
-*   **Export to CSV**: Converts the currently filtered/searched list of release items into a standard downloadable CSV file (correctly escaping fields). Files are named dynamically (e.g. `bigquery_release_notes_feature.csv`).
-*   **In-Memory Server Caching**: Feed items are cached in-memory on the Flask backend for 5 minutes (300 seconds) to prevent rate-limiting, with a force-refresh trigger option.
+*   **Timeline Date Grouping**: Groups consecutive day-level updates under clean date headers. Displays cards along a vertical timeline connector line (`.timeline-line`) with circular nodes (`.timeline-dot`) for an easy-to-scan feed.
+*   **Search Query Keyword Highlighting**: Dynamically wraps text matching active search queries in `<mark class="search-highlight">` tags, ignoring nested HTML tags to protect links and attributes from breaking.
+*   **Circular Progress Ring & Tweet Guard**: Displays a circular SVG progress indicator in the Tweet Composer that fills as you type (handling Twitter's 23-character link wrapping). It changes colors (green ➔ amber ➔ red) and disables the submit button if the draft exceeds 280 characters.
+*   **Skeleton Loading Shimmers**: Replaces static spinners with animated, pulsing skeleton shimmers (`.skeleton-card`) representing card shapes to minimize perceived load times.
+*   **Slide-In Toast Notifications**: Displays bottom-center notification popups (`.toast`) with corresponding icons for actions (e.g. copying to clipboard, switching themes, exporting CSV, and server network issues).
+*   **Quick Empty State Reset**: If a search yields zero matches, an "Empty State" card provides a "Reset Search & Filters" CTA button to clear the inputs and reload cards in one click.
+*   **Accessibility Focus & Key Listeners**: Adds focus-visible outline states to all buttons, tabs, and cards. Supports Tab navigation, card activation via `Enter`/`Space`, and closing mobile drawers using `Escape`.
+*   **Copy to Clipboard (Secure Fallback)**: Copies formatted card contents to the clipboard. Automatically falls back to a synchronous `execCommand` copy script if executed under non-secure IP testing networks, preventing user-gesture browser blocks.
+*   **Export to CSV**: Exports the currently filtered/searched list of release items into a downloadable CSV file, dynamically naming it according to the active category (e.g. `bigquery_release_notes_feature.csv`).
+*   **In-Memory Server Caching**: Backend caching for 5 minutes (300 seconds) to avoid hitting GCP rate-limits, with manual override force-refresh capabilities.
 
 ---
 
