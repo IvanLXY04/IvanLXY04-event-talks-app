@@ -978,3 +978,62 @@ body {
         white-space: nowrap;
     }
 }
+
+/* Secondary Button, Copy Button, and Card Actions Layout Styles */
+.secondary-btn {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    padding: 0.625rem 1.25rem;
+    border-radius: 10px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s, transform 0.1s;
+    box-shadow: var(--shadow-sm);
+}
+
+.secondary-btn:hover {
+    background-color: var(--primary-light);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.secondary-btn:active {
+    transform: scale(0.98);
+}
+
+.card-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.card-copy-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: color 0.2s, transform 0.1s;
+}
+
+.card-copy-btn:hover {
+    color: var(--primary-color);
+}
+
+.card-copy-btn.copied {
+    color: #10b981 !important;
+}
+
+.card-copy-btn i {
+    width: 14px;
+    height: 14px;
+}

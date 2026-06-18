@@ -14,6 +14,7 @@ const searchInput = document.getElementById('search-input');
 const clearSearchBtn = document.getElementById('clear-search-btn');
 const categoryFilters = document.getElementById('category-filters');
 const refreshBtn = document.getElementById('refresh-btn');
+const exportCsvBtn = document.getElementById('export-csv-btn');
 const themeToggle = document.getElementById('theme-toggle');
 const feedInfo = document.getElementById('feed-info');
 const sourceBadge = document.getElementById('source-badge');
@@ -153,12 +154,18 @@ function renderCards(items) {
                         <i data-lucide="external-link"></i>
                         Official Docs Reference
                     </a>
-                    <button class="card-tweet-btn" onclick="event.stopPropagation(); selectAndTweetCard('${item.id}');">
-                        <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="currentColor">
-                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
-                        </svg>
-                        <span>Tweet Update</span>
-                    </button>
+                    <div class="card-actions">
+                        <button class="card-copy-btn" onclick="event.stopPropagation(); copyCardText('${item.id}', this);" title="Copy update to clipboard">
+                            <i data-lucide="copy"></i>
+                            <span>Copy</span>
+                        </button>
+                        <button class="card-tweet-btn" onclick="event.stopPropagation(); selectAndTweetCard('${item.id}');">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="currentColor">
+                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
+                            </svg>
+                            <span>Tweet Update</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -396,6 +403,13 @@ function setupEventListeners() {
     mobileComposerTrigger.addEventListener('click', () => {
         composerSidebar.classList.add('open');
     });
+
+    // Export to CSV Trigger
+    if (exportCsvBtn) {
+        exportCsvBtn.addEventListener('click', () => {
+            exportToCSV();
+        });
+    }
 }
 
 // Load Theme Preferences
@@ -412,3 +426,80 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     fetchReleases();
 });
+
+// Copy Card Text to Clipboard Utility
+async function copyCardText(id, btn) {
+    const item = releases.find(r => r.id === id);
+    if (!item) return;
+    
+    const copyText = `BigQuery ${item.category} (${item.date}):\n${item.text_content}\n\nRead more: ${item.link}`;
+    
+    try {
+        await navigator.clipboard.writeText(copyText);
+        
+        // Visual indicator feedback
+        const span = btn.querySelector('span');
+        const icon = btn.querySelector('i');
+        const originalText = span.innerText;
+        const originalHtml = icon.outerHTML;
+        
+        btn.classList.add('copied');
+        btn.innerHTML = `<i data-lucide="check"></i> <span>Copied!</span>`;
+        initIcons();
+        
+        setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = `${originalHtml} <span>${originalText}</span>`;
+            initIcons();
+        }, 2000);
+        
+    } catch (err) {
+        console.error('Failed to copy to clipboard:', err);
+        alert('Failed to copy to clipboard.');
+    }
+}
+
+// CSV Field Escape Utility
+function escapeCSV(val) {
+    if (val === null || val === undefined) return '';
+    let str = String(val);
+    str = str.replace(/"/g, '""');
+    if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
+        str = `"${str}"`;
+    }
+    return str;
+}
+
+// Export Filtered Releases to CSV
+function exportToCSV() {
+    if (filteredReleases.length === 0) {
+        alert("No release notes found to export!");
+        return;
+    }
+    
+    const headers = ["Date", "Category", "Content", "Reference Link"];
+    const rows = filteredReleases.map(item => [
+        item.date,
+        item.category,
+        item.text_content,
+        item.link
+    ]);
+    
+    const csvContent = [
+        headers.map(escapeCSV).join(','),
+        ...rows.map(row => row.map(escapeCSV).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    
+    const categoryName = activeFilters.category === 'all' ? 'all' : activeFilters.category.toLowerCase();
+    link.setAttribute("href", url);
+    link.setAttribute("download", `bigquery_release_notes_${categoryName}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
