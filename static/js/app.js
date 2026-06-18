@@ -427,15 +427,38 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchReleases();
 });
 
-// Copy Card Text to Clipboard Utility
+// Copy Card Text to Clipboard Utility (with execCommand fallback)
 async function copyCardText(id, btn) {
     const item = releases.find(r => r.id === id);
     if (!item) return;
     
     const copyText = `BigQuery ${item.category} (${item.date}):\n${item.text_content}\n\nRead more: ${item.link}`;
     
+    let copySuccess = false;
+    
     try {
-        await navigator.clipboard.writeText(copyText);
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(copyText);
+            copySuccess = true;
+        } else {
+            // Fallback for non-secure contexts or when clipboard API is unavailable
+            const textArea = document.createElement("textarea");
+            textArea.value = copyText;
+            textArea.style.position = "fixed";
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.opacity = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            copySuccess = document.execCommand('copy');
+            document.body.removeChild(textArea);
+        }
+        
+        if (!copySuccess) {
+            throw new Error("execCommand copy returned false");
+        }
         
         // Visual indicator feedback
         const span = btn.querySelector('span');
@@ -455,7 +478,7 @@ async function copyCardText(id, btn) {
         
     } catch (err) {
         console.error('Failed to copy to clipboard:', err);
-        alert('Failed to copy to clipboard.');
+        alert('Unable to copy text automatically. Please select and copy text manually.');
     }
 }
 
