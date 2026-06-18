@@ -126,6 +126,12 @@
                             
                             <div class="composer-actions">
                                 <div class="char-counter-container">
+                                    <div class="progress-ring-wrapper">
+                                        <svg class="progress-ring" width="20" height="20">
+                                            <circle class="progress-ring__circle-bg" stroke="var(--card-border)" stroke-width="2" fill="transparent" r="8" cx="10" cy="10"/>
+                                            <circle class="progress-ring__circle" id="progress-circle" stroke="var(--primary-color)" stroke-width="2" fill="transparent" r="8" cx="10" cy="10"/>
+                                        </svg>
+                                    </div>
                                     <span id="char-count">0</span>/280
                                 </div>
                                 <div class="quick-tags">
@@ -158,6 +164,9 @@
             </button>
         </div>
     </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container"></div>
 
     <!-- Custom JavaScript -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

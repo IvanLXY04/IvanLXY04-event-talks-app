@@ -8,6 +8,10 @@ let activeFilters = {
 };
 let activeHashtags = new Set();
 
+// SVG Circular Progress Ring Parameters
+let circle = null;
+let circumference = 0;
+
 // DOM Elements
 const cardsGrid = document.getElementById('cards-grid');
 const searchInput = document.getElementById('search-input');
@@ -41,25 +45,114 @@ function initIcons() {
     }
 }
 
-// Format date helper (relative or absolute)
+// Toast Notification System
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    
+    let iconName = 'info';
+    if (type === 'success') iconName = 'check-circle';
+    else if (type === 'warning') iconName = 'alert-triangle';
+    else if (type === 'error') iconName = 'x-circle';
+    
+    toast.innerHTML = `<i data-lucide="${iconName}"></i> <span>${message}</span>`;
+    container.appendChild(toast);
+    initIcons();
+    
+    // Slide in
+    setTimeout(() => toast.classList.add('show'), 50);
+    
+    // Auto remove
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 400);
+    }, 3500);
+}
+
+// HTML Search Query Highlighting Utility
+function highlightHTML(html, query) {
+    if (!query || !query.trim()) return html;
+    const escapedQuery = query.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    
+    // Split HTML by tags to avoid breaking markup attributes
+    const parts = html.split(/(<[^>]+>)/);
+    return parts.map(part => {
+        if (part.startsWith('<')) {
+            return part; // Keep tag intact
+        } else {
+            return part.replace(regex, '<mark class="search-highlight">$1</mark>');
+        }
+    }).join('');
+}
+
+// Format date helper
 function formatLastChecked() {
     const now = new Date();
     return `Last checked: ${now.toLocaleTimeString()}`;
 }
 
+// Render Pulse Skeleton Card Loaders
+function renderSkeletons() {
+    cardsGrid.innerHTML = `
+        <div class="timeline-container">
+            <div class="timeline-line"></div>
+            <div class="skeleton-group">
+                <div class="skeleton-header"></div>
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+            </div>
+            <div class="skeleton-group" style="margin-top: 1rem;">
+                <div class="skeleton-header"></div>
+                <div class="skeleton-card"></div>
+            </div>
+        </div>
+    `;
+}
+
+// Render Empty Results with Quick Reset Button
+function renderEmptyState() {
+    cardsGrid.innerHTML = `
+        <div class="empty-state">
+            <i data-lucide="search-code"></i>
+            <h3>No Release Notes Found</h3>
+            <p>Try adjusting your search query or category filters.</p>
+            <button class="primary-btn" id="reset-filters-btn" aria-label="Reset Search and Filters">
+                <i data-lucide="rotate-ccw"></i>
+                <span>Reset Search & Filters</span>
+            </button>
+        </div>
+    `;
+    initIcons();
+    
+    const resetBtn = document.getElementById('reset-filters-btn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            activeFilters.searchQuery = '';
+            clearSearchBtn.style.display = 'none';
+            
+            document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
+            const allTag = document.querySelector('.filter-tag[data-category="all"]');
+            if (allTag) allTag.classList.add('active');
+            activeFilters.category = 'all';
+            
+            applyFiltersAndSearch();
+            showToast("Search and filters reset", "info");
+        });
+    }
+}
+
 // Fetch Releases from Flask Server API
 async function fetchReleases(forceRefresh = false) {
-    // Show loading spinner
     refreshBtn.classList.add('refreshing');
     refreshBtn.disabled = true;
     
     if (releases.length === 0) {
-        cardsGrid.innerHTML = `
-            <div class="loading-state">
-                <div class="loader"></div>
-                <p>Fetching BigQuery release notes...</p>
-            </div>
-        `;
+        renderSkeletons();
     }
 
     try {
@@ -77,12 +170,14 @@ async function fetchReleases(forceRefresh = false) {
         if (data.source === 'live') {
             sourceBadge.innerText = 'Live';
             sourceBadge.style.backgroundColor = '#10b981';
+            if (forceRefresh) showToast("Release notes fetched live successfully", "success");
         } else if (data.source === 'cache') {
             sourceBadge.innerText = 'Cached';
             sourceBadge.style.backgroundColor = '#3b82f6';
         } else {
             sourceBadge.innerText = 'Offline Fallback';
             sourceBadge.style.backgroundColor = '#f59e0b';
+            showToast("Offline mode: showing cached releases", "warning");
         }
         
         itemCount.innerText = `${releases.length} items loaded`;
@@ -103,79 +198,114 @@ async function fetchReleases(forceRefresh = false) {
             </div>
         `;
         initIcons();
+        showToast("Error retrieving release notes", "error");
     } finally {
         refreshBtn.classList.remove('refreshing');
         refreshBtn.disabled = false;
     }
 }
 
-// Render release cards in grid
+// Render release cards grouped in vertical Timeline Date headers
 function renderCards(items) {
     if (items.length === 0) {
-        cardsGrid.innerHTML = `
-            <div class="empty-state">
-                <i data-lucide="search-code"></i>
-                <h3>No Release Notes Found</h3>
-                <p>Try adjusting your search query or category filters.</p>
-            </div>
-        `;
-        initIcons();
+        renderEmptyState();
         return;
     }
 
-    cardsGrid.innerHTML = items.map((item, index) => {
-        const isSelected = selectedRelease && selectedRelease.id === item.id;
-        const categoryClass = `cat-${item.category.toLowerCase()}`;
-        
-        // Add staggered animation delay
-        const delay = Math.min(index * 0.05, 0.8);
-        
-        return `
-            <div class="release-card card-anim-item ${isSelected ? 'selected' : ''}" 
-                 data-id="${item.id}"
-                 style="animation-delay: ${delay}s">
-                <div class="card-header">
-                    <div class="card-meta">
-                        <span class="category-badge ${categoryClass}">${item.category}</span>
-                        <span class="date-badge">
-                            <i data-lucide="calendar"></i>
-                            ${item.date}
-                        </span>
-                    </div>
-                    <div class="select-indicator">
-                        <i data-lucide="check"></i>
-                    </div>
-                </div>
-                <div class="card-body">
-                    ${item.html_content}
-                </div>
-                <div class="card-footer">
-                    <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="card-link-btn" onclick="event.stopPropagation();">
-                        <i data-lucide="external-link"></i>
-                        Official Docs Reference
-                    </a>
-                    <div class="card-actions">
-                        <button class="card-copy-btn" onclick="event.stopPropagation(); copyCardText('${item.id}', this);" title="Copy update to clipboard">
-                            <i data-lucide="copy"></i>
-                            <span>Copy</span>
-                        </button>
-                        <button class="card-tweet-btn" onclick="event.stopPropagation(); selectAndTweetCard('${item.id}');">
-                            <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="currentColor">
-                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
-                            </svg>
-                            <span>Tweet Update</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
+    // Group items consecutively by Date to maintain order
+    const groupedReleases = [];
+    let currentGroup = null;
     
-    // Attach event listeners to cards
+    items.forEach(item => {
+        if (!currentGroup || currentGroup.date !== item.date) {
+            currentGroup = { date: item.date, items: [] };
+            groupedReleases.push(currentGroup);
+        }
+        currentGroup.items.push(item);
+    });
+
+    let overallIndex = 0;
+
+    const timelineHTML = `
+        <div class="timeline-container">
+            <div class="timeline-line"></div>
+            ${groupedReleases.map(group => `
+                <div class="timeline-group">
+                    <div class="timeline-date-header">
+                        <div class="timeline-dot"></div>
+                        <h3>${group.date}</h3>
+                    </div>
+                    <div class="timeline-cards">
+                        ${group.items.map(item => {
+                            const isSelected = selectedRelease && selectedRelease.id === item.id;
+                            const categoryClass = `cat-${item.category.toLowerCase()}`;
+                            const delay = Math.min(overallIndex * 0.05, 0.8);
+                            overallIndex++;
+                            
+                            // Highlight text elements matching current search query
+                            const highlightedBody = highlightHTML(item.html_content, activeFilters.searchQuery);
+                            
+                            return `
+                                <div class="release-card card-anim-item ${isSelected ? 'selected' : ''}" 
+                                     data-id="${item.id}"
+                                     tabindex="0"
+                                     role="button"
+                                     aria-selected="${isSelected ? 'true' : 'false'}"
+                                     style="animation-delay: ${delay}s">
+                                    <div class="card-header">
+                                        <div class="card-meta">
+                                            <span class="category-badge ${categoryClass}">${item.category}</span>
+                                        </div>
+                                        <div class="select-indicator">
+                                            <i data-lucide="check"></i>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        ${highlightedBody}
+                                    </div>
+                                    <div class="card-footer">
+                                        <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="card-link-btn" onclick="event.stopPropagation();">
+                                            <i data-lucide="external-link"></i>
+                                            Official Docs Reference
+                                        </a>
+                                        <div class="card-actions">
+                                            <button class="card-copy-btn" onclick="event.stopPropagation(); copyCardText('${item.id}', this);" title="Copy update to clipboard">
+                                                <i data-lucide="copy"></i>
+                                                <span>Copy</span>
+                                            </button>
+                                            <button class="card-tweet-btn" onclick="event.stopPropagation(); selectAndTweetCard('${item.id}');">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="currentColor">
+                                                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
+                                                </svg>
+                                                <span>Tweet Update</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+
+    cardsGrid.innerHTML = timelineHTML;
+    
+    // Attach click and keyboard listeners to cards
     document.querySelectorAll('.release-card').forEach(card => {
         card.addEventListener('click', () => {
             const id = card.getAttribute('data-id');
             selectReleaseItem(id);
+        });
+        
+        // Keyboard accessibility select
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const id = card.getAttribute('data-id');
+                selectReleaseItem(id);
+            }
         });
     });
 
@@ -185,11 +315,9 @@ function renderCards(items) {
 // Filter and Search Logic
 function applyFiltersAndSearch() {
     filteredReleases = releases.filter(item => {
-        // Category Filter matching
         const matchesCategory = activeFilters.category === 'all' || 
             item.category.toLowerCase() === activeFilters.category.toLowerCase();
             
-        // Search Query Filter matching
         const cleanQuery = activeFilters.searchQuery.trim().toLowerCase();
         const matchesSearch = !cleanQuery || 
             item.date.toLowerCase().includes(cleanQuery) ||
@@ -213,8 +341,10 @@ function selectReleaseItem(id) {
     document.querySelectorAll('.release-card').forEach(card => {
         if (card.getAttribute('data-id') === id) {
             card.classList.add('selected');
+            card.setAttribute('aria-selected', 'true');
         } else {
             card.classList.remove('selected');
+            card.setAttribute('aria-selected', 'false');
         }
     });
 
@@ -240,7 +370,6 @@ function selectReleaseItem(id) {
 
 function selectAndTweetCard(id) {
     selectReleaseItem(id);
-    // Focus textarea
     tweetTextarea.focus();
 }
 
@@ -253,11 +382,8 @@ function draftTweet() {
     const rawText = selectedRelease.text_content;
     const link = selectedRelease.link;
     
-    // Format active hashtags
     const hashtags = Array.from(activeHashtags).join(' ');
     
-    // Max characters count calculation: X allows 280 characters.
-    // The links are standard wrapped in ~23 characters by X/Twitter.
     const prefix = `BigQuery ${category} (${date}): `;
     const suffix = `\n\n${link}${hashtags ? '\n' : ''}${hashtags}`;
     
@@ -274,28 +400,48 @@ function draftTweet() {
     updateCharCount();
 }
 
-// Update Character Counter
+// Update Circular Progress Ring SVG Dash Offset
+function setProgress(percent) {
+    if (!circle || circumference === 0) return;
+    const offset = circumference - (percent / 100) * circumference;
+    circle.style.strokeDashoffset = Math.max(0, offset);
+}
+
+// Update Character Counter & Circular SVG Progress
 function updateCharCount() {
     const text = tweetTextarea.value;
     
-    // Calculate character count similarly to Twitter (wrapping URLs to 23 chars)
-    // Find URLs in tweet
+    // Calculate character count (wrapping URLs to 23 chars)
     const urlPattern = /https?:\/\/[^\s]+/g;
     let length = text.length;
     
     const urls = text.match(urlPattern);
     if (urls) {
         urls.forEach(url => {
-            length = length - url.length + 23; // subtract link length, add 23 for Twitter wrapper
+            length = length - url.length + 23;
         });
     }
     
     charCount.innerText = length;
     
-    if (length > 280) {
-        charCount.classList.add('danger');
-    } else {
-        charCount.classList.remove('danger');
+    // Update SVG progress ring
+    const percentage = Math.min((length / 280) * 100, 100);
+    setProgress(percentage);
+    
+    if (circle) {
+        if (length > 280) {
+            circle.style.stroke = '#ef4444'; // Red
+            charCount.classList.add('danger');
+            tweetSubmitBtn.disabled = true; // Submit guard
+        } else if (length >= 260) {
+            circle.style.stroke = '#f59e0b'; // Amber
+            charCount.classList.remove('danger');
+            tweetSubmitBtn.disabled = false;
+        } else {
+            circle.style.stroke = 'var(--primary-color)'; // Default
+            charCount.classList.remove('danger');
+            tweetSubmitBtn.disabled = false;
+        }
     }
 }
 
@@ -325,7 +471,6 @@ function setupEventListeners() {
         const tag = e.target.closest('.filter-tag');
         if (!tag) return;
         
-        // Update active class
         document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
         tag.classList.add('active');
         
@@ -356,7 +501,6 @@ function setupEventListeners() {
                 btn.classList.add('active');
             }
             
-            // Re-draft the tweet with updated tags list
             draftTweet();
         });
     });
@@ -364,24 +508,9 @@ function setupEventListeners() {
     // Submit Tweet Button (open Web Intent)
     tweetSubmitBtn.addEventListener('click', () => {
         const text = tweetTextarea.value;
-        
-        // Final length check
-        const urlPattern = /https?:\/\/[^\s]+/g;
-        let length = text.length;
-        const urls = text.match(urlPattern);
-        if (urls) {
-            urls.forEach(url => {
-                length = length - url.length + 23;
-            });
-        }
-        
-        if (length > 280) {
-            alert(`Your tweet exceeds the 280 character limit (calculated as ${length} characters)! Please shorten it before posting.`);
-            return;
-        }
-        
         const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
         window.open(twitterUrl, '_blank', 'noopener,noreferrer');
+        showToast("Opening X/Twitter composer...", "success");
     });
     
     // Theme Toggling
@@ -392,6 +521,7 @@ function setupEventListeners() {
         
         html.setAttribute('data-theme', newTheme);
         localStorage.setItem('theme', newTheme);
+        showToast(`Theme switched to ${newTheme} mode`, "info");
     });
     
     // Close Composer Drawer (Mobile)
@@ -410,22 +540,14 @@ function setupEventListeners() {
             exportToCSV();
         });
     }
-}
 
-// Load Theme Preferences
-function loadPreferences() {
-    const savedTheme = localStorage.getItem('theme');
-    const systemTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-    const activeTheme = savedTheme || systemTheme;
-    document.documentElement.setAttribute('data-theme', activeTheme);
+    // Keyboard support: Escape key closes composer
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            composerSidebar.classList.remove('open');
+        }
+    });
 }
-
-// Document Ready bootstrap
-document.addEventListener('DOMContentLoaded', () => {
-    loadPreferences();
-    setupEventListeners();
-    fetchReleases();
-});
 
 // Copy Card Text to Clipboard Utility (with synchronous execCommand fallback)
 function copyCardText(id, btn) {
@@ -454,14 +576,12 @@ function copyCardText(id, btn) {
 function trySyncCopy(text, btn) {
     const textArea = document.createElement("textarea");
     textArea.value = text;
-    // Position out-of-view and set styling
     textArea.style.position = "fixed";
     textArea.style.top = "0";
     textArea.style.left = "0";
     textArea.style.opacity = "0";
     document.body.appendChild(textArea);
     
-    // Select the content
     textArea.focus();
     textArea.select();
     
@@ -477,11 +597,11 @@ function trySyncCopy(text, btn) {
     if (success) {
         showCopyFeedback(btn);
     } else {
-        alert('Unable to copy text automatically. Please select and copy text manually.');
+        showToast("Failed to copy automatically. Copy text manually.", "error");
     }
 }
 
-// Show visual feedback toggle
+// Show visual feedback toggle and slide toast
 function showCopyFeedback(btn) {
     const span = btn.querySelector('span');
     const icon = btn.querySelector('i');
@@ -491,6 +611,7 @@ function showCopyFeedback(btn) {
     btn.classList.add('copied');
     btn.innerHTML = `<i data-lucide="check"></i> <span>Copied!</span>`;
     initIcons();
+    showToast("Copied release update to clipboard", "success");
     
     setTimeout(() => {
         btn.classList.remove('copied');
@@ -513,7 +634,7 @@ function escapeCSV(val) {
 // Export Filtered Releases to CSV
 function exportToCSV() {
     if (filteredReleases.length === 0) {
-        alert("No release notes found to export!");
+        showToast("No release notes found to export!", "warning");
         return;
     }
     
@@ -542,4 +663,30 @@ function exportToCSV() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    showToast(`Exported ${filteredReleases.length} updates to CSV`, "success");
 }
+
+// Load Theme Preferences
+function loadPreferences() {
+    const savedTheme = localStorage.getItem('theme');
+    const systemTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    const activeTheme = savedTheme || systemTheme;
+    document.documentElement.setAttribute('data-theme', activeTheme);
+}
+
+// Document Ready bootstrap
+document.addEventListener('DOMContentLoaded', () => {
+    loadPreferences();
+    setupEventListeners();
+    
+    // Set up circular progress values
+    circle = document.getElementById('progress-circle');
+    if (circle) {
+        const radius = circle.r.baseVal.value;
+        circumference = radius * 2 * Math.PI;
+        circle.style.strokeDasharray = `${circumference} ${circumference}`;
+        circle.style.strokeDashoffset = circumference;
+    }
+
+    fetchReleases();
+});

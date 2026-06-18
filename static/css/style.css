@@ -1037,3 +1037,195 @@ body {
     width: 14px;
     height: 14px;
 }
+
+/* Timeline Layout Grouping Styles */
+.timeline-container {
+    position: relative;
+    padding-left: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    margin-top: 0.5rem;
+}
+
+.timeline-line {
+    position: absolute;
+    left: 8px;
+    top: 10px;
+    bottom: 20px;
+    width: 2px;
+    background-color: var(--card-border);
+}
+
+.timeline-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    position: relative;
+}
+
+.timeline-date-header {
+    display: flex;
+    align-items: center;
+    position: relative;
+    left: -2rem;
+}
+
+.timeline-dot {
+    position: absolute;
+    left: 3px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: var(--primary-color);
+    border: 3px solid var(--bg-color);
+    box-shadow: 0 0 0 2px var(--primary-light);
+    z-index: 10;
+}
+
+.timeline-date-header h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    padding-left: 2rem;
+    background-color: var(--bg-color);
+    padding-right: 1rem;
+    margin: 0;
+}
+
+.timeline-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* Search Highlight style */
+.search-highlight {
+    background-color: rgba(245, 158, 11, 0.25);
+    color: inherit;
+    border-radius: 4px;
+    padding: 0 2px;
+    font-weight: 500;
+    border-bottom: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+/* Skeleton Loading Shimmer Card Styles */
+.skeleton-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: 100%;
+}
+
+.skeleton-header {
+    width: 140px;
+    height: 24px;
+    background: linear-gradient(90deg, var(--card-border) 25%, var(--scrollbar-thumb) 50%, var(--card-border) 75%);
+    background-size: 200% 100%;
+    animation: loadingPulse 1.5s infinite linear;
+    border-radius: 6px;
+    margin-left: 2rem;
+}
+
+.skeleton-card {
+    height: 180px;
+    background: linear-gradient(90deg, var(--card-bg) 25%, var(--card-border) 50%, var(--card-bg) 75%);
+    background-size: 200% 100%;
+    animation: loadingPulse 1.5s infinite linear;
+    border-radius: 16px;
+    border: 1px solid var(--card-border);
+}
+
+@keyframes loadingPulse {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Toast Notifications styling */
+.toast-container {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    z-index: 9999;
+    pointer-events: none;
+}
+
+.toast {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+    pointer-events: auto;
+    border-left: 4px solid var(--primary-color);
+}
+
+.toast.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.toast i {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.toast-success { border-left-color: #10b981; color: #10b981; }
+.toast-info { border-left-color: #3b82f6; color: #3b82f6; }
+.toast-warning { border-left-color: #f59e0b; color: #f59e0b; }
+.toast-error { border-left-color: #ef4444; color: #ef4444; }
+
+/* SVG Circular Progress Ring */
+.progress-ring-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.5rem;
+}
+
+.progress-ring__circle-bg {
+    stroke: var(--card-border);
+}
+
+.progress-ring__circle {
+    transition: stroke-dashoffset 0.1s ease, stroke 0.2s ease;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+}
+
+/* Accessibility Focus States */
+.release-card:focus-visible,
+.filter-tag:focus-visible,
+.primary-btn:focus-visible,
+.secondary-btn:focus-visible,
+.icon-btn:focus-visible,
+.quick-tag-btn:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.release-card:focus {
+    outline: none;
+}
+
+/* Empty State reset button alignment */
+.empty-state .primary-btn {
+    margin-top: 0.75rem;
+}
+
