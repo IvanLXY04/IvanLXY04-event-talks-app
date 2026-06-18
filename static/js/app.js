@@ -427,59 +427,76 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchReleases();
 });
 
-// Copy Card Text to Clipboard Utility (with execCommand fallback)
-async function copyCardText(id, btn) {
+// Copy Card Text to Clipboard Utility (with synchronous execCommand fallback)
+function copyCardText(id, btn) {
     const item = releases.find(r => r.id === id);
     if (!item) return;
     
     const copyText = `BigQuery ${item.category} (${item.date}):\n${item.text_content}\n\nRead more: ${item.link}`;
     
-    let copySuccess = false;
+    // Check if modern Clipboard API is available and in secure context
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(copyText)
+            .then(() => {
+                showCopyFeedback(btn);
+            })
+            .catch(err => {
+                console.warn('Async clipboard API failed, trying synchronous fallback:', err);
+                trySyncCopy(copyText, btn);
+            });
+    } else {
+        // Run fallback immediately and synchronously within the click event call stack
+        trySyncCopy(copyText, btn);
+    }
+}
+
+// Synchronous Fallback using execCommand ('copy')
+function trySyncCopy(text, btn) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    // Position out-of-view and set styling
+    textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.opacity = "0";
+    document.body.appendChild(textArea);
     
+    // Select the content
+    textArea.focus();
+    textArea.select();
+    
+    let success = false;
     try {
-        if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(copyText);
-            copySuccess = true;
-        } else {
-            // Fallback for non-secure contexts or when clipboard API is unavailable
-            const textArea = document.createElement("textarea");
-            textArea.value = copyText;
-            textArea.style.position = "fixed";
-            textArea.style.top = "0";
-            textArea.style.left = "0";
-            textArea.style.opacity = "0";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            
-            copySuccess = document.execCommand('copy');
-            document.body.removeChild(textArea);
-        }
-        
-        if (!copySuccess) {
-            throw new Error("execCommand copy returned false");
-        }
-        
-        // Visual indicator feedback
-        const span = btn.querySelector('span');
-        const icon = btn.querySelector('i');
-        const originalText = span.innerText;
-        const originalHtml = icon.outerHTML;
-        
-        btn.classList.add('copied');
-        btn.innerHTML = `<i data-lucide="check"></i> <span>Copied!</span>`;
-        initIcons();
-        
-        setTimeout(() => {
-            btn.classList.remove('copied');
-            btn.innerHTML = `${originalHtml} <span>${originalText}</span>`;
-            initIcons();
-        }, 2000);
-        
+        success = document.execCommand('copy');
     } catch (err) {
-        console.error('Failed to copy to clipboard:', err);
+        console.error('Synchronous copy command failed:', err);
+    }
+    
+    document.body.removeChild(textArea);
+    
+    if (success) {
+        showCopyFeedback(btn);
+    } else {
         alert('Unable to copy text automatically. Please select and copy text manually.');
     }
+}
+
+// Show visual feedback toggle
+function showCopyFeedback(btn) {
+    const span = btn.querySelector('span');
+    const icon = btn.querySelector('i');
+    const originalText = span.innerText;
+    const originalHtml = icon.outerHTML;
+    
+    btn.classList.add('copied');
+    btn.innerHTML = `<i data-lucide="check"></i> <span>Copied!</span>`;
+    initIcons();
+    
+    setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = `${originalHtml} <span>${originalText}</span>`;
+        initIcons();
+    }, 2000);
 }
 
 // CSV Field Escape Utility
